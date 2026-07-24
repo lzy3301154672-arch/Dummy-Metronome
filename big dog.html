@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dummy Metronome Pro</title>
+    <style>
+        /* ================= CSS：色彩变量与主题 ================= */
+        :root {
+            --bg-color: #f2f2f2;
+            --app-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #555555;
+            --card-bg: #f9f9f9;
+            --border-color: #eeeeee;
+            --btn-off-bg: #e0e0e0;
+            --btn-off-text: #333333;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --app-bg: #2d2d2d;
+            --text-main: #f0f0f0;
+            --text-sub: #aaaaaa;
+            --card-bg: #383838;
+            --border-color: #444444;
+            --btn-off-bg: #444444;
+            --btn-off-text: #cccccc;
+        }
+
+        /* ================= CSS：骨架与排版 ================= */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none;
+            transition: background-color 0.3s;
+        }
+        .app-container {
+            background-color: var(--app-bg);
+            width: 90%;
+            max-width: 360px;
+            padding: 30px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        /* --- 新增：指示灯容器 --- */
+        .blinker-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            height: 20px; /* 固定高度防止跳动 */
+            align-items: center;
+        }
+
+        .blinker {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--border-color);
+            transition: background-color 0.05s, box-shadow 0.05s, transform 0.05s;
+        }
+        .blinker.flash-accent {
+            background-color: #FF6B6B;
+            box-shadow: 0 0 15px #FF6B6B;
+            transform: scale(1.2); /* 强拍时灯泡稍微放大 */
+        }
+        .blinker.flash-normal {
+            background-color: #4CAF50;
+            box-shadow: 0 0 12px #4CAF50;
+            transform: scale(1.1); /* 弱拍时灯泡微微放大 */
+        }
+
+        .bpm-label {
+            display: inline-block;
+            background-color: var(--card-bg);
+            padding: 5px 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            color: var(--text-sub);
+        }
+        .bpm-value {
+            font-size: 80px;
+            font-weight: 900;
+            margin: 0 0 10px 0;
+            color: var(--text-main);
+        }
+        input[type=range] {
+            width: 80%;
+            margin-bottom: 25px;
+        }
+        .vol-slider {
+            width: 60% !important;
+            margin-bottom: 0 !important;
+        }
+        .btn {
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+        }
+        .play-btn {
+            background-color: var(--app-bg);
+            color: var(--text-main);
+            border: 2px solid var(--border-color);
+            margin-bottom: 15px;
+        }
+        .play-btn.playing {
+            background-color: #FF6B6B;
+            color: white;
+            border-color: #FF6B6B;
+        }
+        .dummy-btn {
+            background-color: var(--btn-off-bg);
+            color: var(--btn-off-text);
+            margin-bottom: 20px;
+        }
+        .dummy-btn.active {
+            background-color: #FF6B6B;
+            color: white;
+        }
+        .controls-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: left;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-sub);
+            margin-bottom: 10px;
+        }
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        select {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background-color: var(--app-bg);
+            color: var(--text-main);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+
+        <!-- 修改为一个能够容纳多个灯的容器 -->
+        <div class="blinker-container" id="blinkerContainer"></div>
+
+        <div class="bpm-label">BPM</div>
+        <div class="bpm-value" id="bpmDisplay">60</div>
+        
+        <input type="range" id="bpmSlider" min="40" max="320" value="60">
+        
+        <button class="btn play-btn" id="playBtn" onclick="togglePlay()">▶ 开始</button>
+        <button class="btn dummy-btn" id="dummyBtn" onclick="toggleDummy()">Become a dunmmy: OFF</button>
+
+        <div class="controls-card">
+            <div class="control-row">
+                <span>🔊 音量</span>
+                <input type="range" id="volSlider" class="vol-slider" min="0" max="1" step="0.01" value="0.8">
+            </div>
+            
+            <div class="control-row">
+                <span>每小节拍数</span>
+                <select id="beatSelect">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4" selected>4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls-card">
+            <div class="control-row">
+                <span>节奏细分</span>
+                <select id="rhythmSelect">
+                    <option value="quarter">四分音符 (♩)</option>
+                    <option value="eighth">八分音符 (♫)</option>
+                    <option value="triplet">三连音</option>
+                    <option value="sixteenth">十六分音符 (♬)</option>
+                    <option value="dotted">八分附点 (♪. ♬)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isPlaying = false;
+        let isDummyMode = false;
+        let bpm = 60;
+        let currentVolume = 0.8;
+        
+        let measureBeat = 1;      
+        let subBeatIndex = 0;     
+        let isMutedBeat = false;  
+
+        const rhythms = {
+            "quarter": [1.0],
+            "eighth": [0.5, 0.5],
+            "triplet": [1/3, 1/3, 1/3],
+            "sixteenth": [0.25, 0.25, 0.25, 0.25],
+            "dotted": [0.75, 0.25]
+        };
+
+        const bpmDisplay = document.getElementById("bpmDisplay");
+        const bpmSlider = document.getElementById("bpmSlider");
+        const volSlider = document.getElementById("volSlider");
+        const playBtn = document.getElementById("playBtn");
+        const dummyBtn = document.getElementById("dummyBtn");
+        const beatSelect = document.getElementById("beatSelect");
+        const rhythmSelect = document.getElementById("rhythmSelect");
+        const blinkerContainer = document.getElementById("blinkerContainer");
+        const themeToggleBtn = document.getElementById("themeToggle");
+
+        let audioContext;
+        let timerID;
+
+        // --- 初始化与动态渲染指示灯 ---
+        function renderBlinkers() {
+            const beats = parseInt(beatSelect.value);
+            blinkerContainer.innerHTML = ''; // 清空现有的灯
+            
+            for (let i = 0; i < beats; i++) {
+                const dot = document.createElement("div");
+                dot.className = "blinker";
+                dot.id = "blinker-" + i; // 给每个灯编号，例如 blinker-0, blinker-1
+                blinkerContainer.appendChild(dot);
+            }
+        }
+        
+        // 当修改节拍数时，重新渲染灯的数量
+        beatSelect.addEventListener("change", function() {
+            renderBlinkers();
+        });
+        
+        // 页面刚加载时，渲染默认的 4 个灯
+        renderBlinkers();
+
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                themeToggleBtn.innerText = '🌙';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeToggleBtn.innerText = '☀️';
+            }
+        }
+
+        bpmSlider.addEventListener("input", function() {
+            bpm = parseInt(bpmSlider.value);
+            bpmDisplay.innerText = bpm;
+        });
+
+        volSlider.addEventListener("input", function() {
+            currentVolume = parseFloat(volSlider.value);
+        });
+
+        // --- 闪灯逻辑更新：精准控制对应的灯 ---
+        function flashBlinker(type, beatIndex) {
+            // 通过传入的 beatIndex 找到那一拍对应的指示灯
+            const targetBlinker = document.getElementById("blinker-" + beatIndex);
+            if (!targetBlinker) return;
+
+            targetBlinker.className = 'blinker'; 
+            void targetBlinker.offsetWidth; 
+            targetBlinker.classList.add('flash-' + type);
+            
+            setTimeout(() => {
+                targetBlinker.classList.remove('flash-' + type);
+            }, 70);
+        }
+
+        function playBeep(isAccent) {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const osc = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            osc.frequency.value = isAccent ? 1000 : 800;
+            
+            gainNode.gain.setValueAtTime(currentVolume, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+            
+            osc.start(audioContext.currentTime);
+            osc.stop(audioContext.currentTime + 0.1);
+        }
+
+        function nextNote() {
+            const currentRhythm = rhythms[rhythmSelect.value];
+            const beatsPerMeasure = parseInt(beatSelect.value);
+
+            if (subBeatIndex === 0) {
+                if (isDummyMode && Math.random() < 0.3) {
+                    isMutedBeat = true;
+                } else {
+                    isMutedBeat = false;
+                }
+            }
+
+            // 发声与闪灯联动
+            if (!isMutedBeat) {
+                // measureBeat 是从 1 开始数的，所以对应的灯的索引是 measureBeat - 1
+                const currentLightIndex = measureBeat - 1;
+
+                if (measureBeat === 1 && subBeatIndex === 0) {
+                    playBeep(true); 
+                    flashBlinker('accent', currentLightIndex); // 强拍闪第一盏红灯
+                } else {
+                    playBeep(false); 
+                    flashBlinker('normal', currentLightIndex); // 弱拍及细分音符，在当前的灯上闪绿光
+                }
+            }
+
+            const fraction = currentRhythm[subBeatIndex];
+            const delayMs = (60 / bpm) * fraction * 1000;
+
+            subBeatIndex++;
+            if (subBeatIndex >= currentRhythm.length) {
+                subBeatIndex = 0;
+                measureBeat++;
+                if (measureBeat > beatsPerMeasure) {
+                    measureBeat = 1;
+                }
+            }
+
+            timerID = setTimeout(nextNote, delayMs);
+        }
+
+        function togglePlay() {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.innerText = "■ 停止";
+                playBtn.classList.add("playing");
+                measureBeat = 1;
+                subBeatIndex = 0;
+                
+                // 启动时顺便清理并重置一下灯，防止切换错乱
+                renderBlinkers();
+                
+                nextNote(); 
+            } else {
+                playBtn.innerText = "▶ 开始";
+                playBtn.classList.remove("playing");
+                clearTimeout(timerID); 
+            }
+        }
+
+        function toggleDummy() {
+            isDummyMode = !isDummyMode;
+            if (isDummyMode) {
+                dummyBtn.innerText = "🥷 Become a dunmmy: ON";
+                dummyBtn.classList.add("active");
+            } else {
+                dummyBtn.innerText = "Become a dunmmy: OFF";
+                dummyBtn.classList.remove("active");
+            }
+        }
+    </script>
+</body>
+</html>
