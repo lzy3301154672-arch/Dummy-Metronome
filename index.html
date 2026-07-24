@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dummy Metronome Pro</title>
+
+    
+
+    
     <style>
         /* ================= CSS：色彩变量与主题 ================= */
         :root {
@@ -172,6 +176,23 @@
             background-color: var(--app-bg);
             color: var(--text-main);
             font-size: 14px;
+        }
+        /* 专属开发者签名 */
+        .watermark {
+            position: fixed;
+            bottom: 15px;
+            right: 20px;
+            font-size: 12px;
+            color: #999999;
+            font-family: 'Courier New', Courier, monospace; /* 使用类似代码的字体，更有 Lab 的感觉 */
+            letter-spacing: 1px;
+            z-index: 100;
+            transition: color 0.3s;
+        }
+
+        /* 夜间模式下让签名变得更暗沉一点，不刺眼 */
+        [data-theme="dark"] .watermark {
+            color: #555555;
         }
     </style>
 </head>
@@ -421,5 +442,7 @@
             }
         }
     </script>
+    <!-- 专属签名 -->
+    <div class="watermark">Glen's Lab</div>
 </body>
 </html>
