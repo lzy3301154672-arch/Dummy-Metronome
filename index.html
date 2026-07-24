@@ -64,13 +64,12 @@
             color: var(--text-main);
         }
 
-        /* --- 新增：指示灯容器 --- */
         .blinker-container {
             display: flex;
             justify-content: center;
             gap: 12px;
             margin-bottom: 15px;
-            height: 20px; /* 固定高度防止跳动 */
+            height: 20px; 
             align-items: center;
         }
 
@@ -84,12 +83,12 @@
         .blinker.flash-accent {
             background-color: #FF6B6B;
             box-shadow: 0 0 15px #FF6B6B;
-            transform: scale(1.2); /* 强拍时灯泡稍微放大 */
+            transform: scale(1.2); 
         }
         .blinker.flash-normal {
             background-color: #4CAF50;
             box-shadow: 0 0 12px #4CAF50;
-            transform: scale(1.1); /* 弱拍时灯泡微微放大 */
+            transform: scale(1.1); 
         }
 
         .bpm-label {
@@ -181,7 +180,6 @@
     <div class="app-container">
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
 
-        <!-- 修改为一个能够容纳多个灯的容器 -->
         <div class="blinker-container" id="blinkerContainer"></div>
 
         <div class="bpm-label">BPM</div>
@@ -210,6 +208,18 @@
                     <option value="7">7</option>
                 </select>
             </div>
+
+            <!-- ================= 新增：连续静音拍数选择器 ================= -->
+            <div class="control-row">
+                <span>🔕 连续静音拍数</span>
+                <select id="muteDurationSelect">
+                    <option value="1">1 拍</option>
+                    <option value="2">2 拍</option>
+                    <option value="3">3 拍</option>
+                    <option value="4">4 拍</option>
+                    <option value="8">8 拍</option>
+                </select>
+            </div>
         </div>
 
         <div class="controls-card">
@@ -236,6 +246,9 @@
         let subBeatIndex = 0;     
         let isMutedBeat = false;  
 
+        // ================= 新增：记录当前还要静音多少拍 =================
+        let mutedBeatsRemaining = 0; 
+
         const rhythms = {
             "quarter": [1.0],
             "eighth": [0.5, 0.5],
@@ -251,33 +264,27 @@
         const dummyBtn = document.getElementById("dummyBtn");
         const beatSelect = document.getElementById("beatSelect");
         const rhythmSelect = document.getElementById("rhythmSelect");
+        const muteDurationSelect = document.getElementById("muteDurationSelect"); // 新增
         const blinkerContainer = document.getElementById("blinkerContainer");
         const themeToggleBtn = document.getElementById("themeToggle");
 
         let audioContext;
         let timerID;
 
-        // --- 初始化与动态渲染指示灯 ---
         function renderBlinkers() {
             const beats = parseInt(beatSelect.value);
-            blinkerContainer.innerHTML = ''; // 清空现有的灯
+            blinkerContainer.innerHTML = ''; 
             
             for (let i = 0; i < beats; i++) {
                 const dot = document.createElement("div");
                 dot.className = "blinker";
-                dot.id = "blinker-" + i; // 给每个灯编号，例如 blinker-0, blinker-1
+                dot.id = "blinker-" + i; 
                 blinkerContainer.appendChild(dot);
             }
         }
         
-        // 当修改节拍数时，重新渲染灯的数量
-        beatSelect.addEventListener("change", function() {
-            renderBlinkers();
-        });
-        
-        // 页面刚加载时，渲染默认的 4 个灯
+        beatSelect.addEventListener("change", renderBlinkers);
         renderBlinkers();
-
 
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -299,9 +306,7 @@
             currentVolume = parseFloat(volSlider.value);
         });
 
-        // --- 闪灯逻辑更新：精准控制对应的灯 ---
         function flashBlinker(type, beatIndex) {
-            // 通过传入的 beatIndex 找到那一拍对应的指示灯
             const targetBlinker = document.getElementById("blinker-" + beatIndex);
             if (!targetBlinker) return;
 
@@ -336,25 +341,35 @@
             const currentRhythm = rhythms[rhythmSelect.value];
             const beatsPerMeasure = parseInt(beatSelect.value);
 
+            // ================= 核心静音计时器逻辑 =================
             if (subBeatIndex === 0) {
-                if (isDummyMode && Math.random() < 0.3) {
+                // 如果当前还在连续静音的倒数周期内
+                if (mutedBeatsRemaining > 0) {
                     isMutedBeat = true;
-                } else {
-                    isMutedBeat = false;
+                    mutedBeatsRemaining--; // 消耗掉一拍静音额度
+                } 
+                // 如果当前没有在静音周期内，进行常规的掷骰子
+                else {
+                    if (isDummyMode && Math.random() < 0.3) {
+                        isMutedBeat = true;
+                        // 读取用户选择的静音拍数，减去当前这1拍，存入剩余额度中
+                        const selectedDuration = parseInt(muteDurationSelect.value);
+                        mutedBeatsRemaining = selectedDuration - 1; 
+                    } else {
+                        isMutedBeat = false;
+                    }
                 }
             }
 
-            // 发声与闪灯联动
             if (!isMutedBeat) {
-                // measureBeat 是从 1 开始数的，所以对应的灯的索引是 measureBeat - 1
                 const currentLightIndex = measureBeat - 1;
 
                 if (measureBeat === 1 && subBeatIndex === 0) {
                     playBeep(true); 
-                    flashBlinker('accent', currentLightIndex); // 强拍闪第一盏红灯
+                    flashBlinker('accent', currentLightIndex); 
                 } else {
                     playBeep(false); 
-                    flashBlinker('normal', currentLightIndex); // 弱拍及细分音符，在当前的灯上闪绿光
+                    flashBlinker('normal', currentLightIndex); 
                 }
             }
 
@@ -384,10 +399,8 @@
                 playBtn.classList.add("playing");
                 measureBeat = 1;
                 subBeatIndex = 0;
-                
-                // 启动时顺便清理并重置一下灯，防止切换错乱
+                mutedBeatsRemaining = 0; // 每次重新开始时，清空静音倒数
                 renderBlinkers();
-                
                 nextNote(); 
             } else {
                 playBtn.innerText = "▶ 开始";
@@ -404,6 +417,7 @@
             } else {
                 dummyBtn.innerText = "Become a dunmmy: OFF";
                 dummyBtn.classList.remove("active");
+                mutedBeatsRemaining = 0; // 只要关闭 Dummy 模式，立刻清空静音倒数，恢复声音
             }
         }
     </script>
